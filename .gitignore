@@ -1,5 +1,5 @@
 #ignore state files
-*.terraform
+*.terraform.tfstate
 
 # Ignore .class files
 *.class
