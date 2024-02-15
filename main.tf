@@ -44,28 +44,12 @@ resource "google_compute_router" "my_router" {
   network = google_compute_network.vpc_network.self_link
 }
 
-# Create a global address for the NAT gateway
-resource "google_compute_global_address" "nat_address" {
-  name = "nat-address1"
-}
-
-# Create a Cloud NAT gateway
-resource "google_compute_router_nat" "nat_gateway" {
-  name                        = "nat-gateway"
-  router                      = google_compute_router.my_router.name
-  region                      = "us-central1"
-  source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
-  nat_ip_allocate_option      = "MANUAL_ONLY"
-  nat_ips                     = [google_compute_global_address.nat_address.address]  # Use the address from the global address resource
-  depends_on                  = [google_compute_router.my_router]
-}
-
 # Create a route for the webapp subnet
 resource "google_compute_route" "webapp_route" {
   name              = "webapp-route"
   dest_range        = "0.0.0.0/0"
   network           = google_compute_network.vpc_network.self_link
-  next_hop_gateway  = google_compute_router.my_router.self_link
+  next_hop_gateway  = "default-internet-gateway"
   priority          = 1000  # Set priority higher to ensure it's preferred over default route
-  depends_on        = [google_compute_subnetwork.webapp_subnet, google_compute_router_nat.nat_gateway]
+  depends_on        = [google_compute_subnetwork.webapp_subnet]
 }
