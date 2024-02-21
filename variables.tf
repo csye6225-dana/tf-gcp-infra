@@ -30,6 +30,10 @@ variable "routing_mode"{
     default = "REGIONAL"
 }
 
+variable "routing_mode"{
+    default = "REGIONAL"
+}
+
 variable "router"{
     default = "router"
 }
