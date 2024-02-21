@@ -53,3 +53,4 @@ resource "google_compute_route" "webapp_route" {
   priority          = 1000  # Set priority higher to ensure it's preferred over default route
   depends_on        = [google_compute_subnetwork.webapp_subnet]
 }
+
