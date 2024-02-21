@@ -7,7 +7,7 @@ variable "credentials_file" {
 }
 
 variable "network"{
-    default = "vpc-network1"
+    default = "terraform-vpc"
 }
 
 variable "router"{
