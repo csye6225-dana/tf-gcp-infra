@@ -7,27 +7,35 @@ variable "credentials_file" {
 }
 
 variable "network"{
-    default = "vpc-network1"
+    default = "vpc-network2"
 }
 
 variable "routing_mode"{
     default = "REGIONAL"
 }
 
+variable "ip_range1"{
+    default = "198.162.1.0/24"
+}
+
+variable "ip_range2"{
+    default = "10.0.2.0/24"
+}
+
 variable "router"{
-    default = "router1"
+    default = "router2"
 }
 
 variable "route"{
-    default = "route1"
+    default = "route"
 }
 
 variable "subnet1"{
-    default = "webapp"
+    default = "webapp2"
 }
 
 variable "subnet2"{
-    default = "db"
+    default = "db2"
 }
 
 variable "region" {
