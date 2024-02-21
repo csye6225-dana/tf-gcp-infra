@@ -1,5 +1,6 @@
 #ignore state files
 *.terraform.tfstate
+*.tfstate
 
 # Ignore .class files
 *.class
@@ -34,4 +35,4 @@ venv/
 *.tmp
 
 # Ignore any other file or directory you want to exclude
-*/json
+*.json
