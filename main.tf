@@ -19,7 +19,7 @@ provider "google" {
 resource "google_compute_network" "vpc_network" {
   name                  = var.network
   auto_create_subnetworks = false
-  routing_mode          = "REGIONAL"
+  routing_mode          = var.routing_mode
 }
 
 # Create a subnet for webapp
