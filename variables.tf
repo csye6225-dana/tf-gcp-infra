@@ -26,6 +26,10 @@ variable "ip_range2"{
     default = "10.0.2.0/24"
 }
 
+variable "routing_mode"{
+    default = "REGIONAL"
+}
+
 variable "router"{
     default = "router"
 }
