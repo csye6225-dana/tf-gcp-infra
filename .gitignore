@@ -1,6 +1,7 @@
 #ignore state files
-*.terraform.tfstate
+*.terraform
 *.tfstate
+*.terraform.lock.hcl
 
 # Ignore .class files
 *.class

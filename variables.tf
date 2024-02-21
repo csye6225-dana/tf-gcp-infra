@@ -10,6 +10,10 @@ variable "network"{
     default = "vpc-network1"
 }
 
+variable "routing_mode"{
+    default = "REGIONAL"
+}
+
 variable "router"{
     default = "router1"
 }
