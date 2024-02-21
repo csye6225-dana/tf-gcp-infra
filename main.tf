@@ -85,7 +85,7 @@ resource "google_compute_firewall" "webapp_firewall" {
     protocol = "tcp"
     ports    = ["8080"]
   }
-  source_ranges = ["0.0.0.0/0"]
+  source_ranges = ["0.0.0.0/0"] 
 }
 
 resource "google_compute_firewall" "ssh_firewall" {
@@ -95,6 +95,6 @@ resource "google_compute_firewall" "ssh_firewall" {
   deny {
     protocol = "tcp"
     ports    = ["22"]
-    source_ranges = ["0.0.0.0/0"]
   }
+  source_ranges = ["0.0.0.0/0"]
 }
