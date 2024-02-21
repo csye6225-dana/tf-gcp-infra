@@ -16,7 +16,7 @@ provider2 "google2" {
 }
 
 # Create a VPC network
-resource "google_compute_network" "vpc_network" {
+resource2 "google_compute_network" "vpc_network" {
   name                  = var.network
   auto_create_subnetworks = false
   routing_mode          = "REGIONAL"
