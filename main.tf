@@ -11,21 +11,21 @@ terraform {
 # Configure the Google Cloud provider
 provider "google" {
   credentials = file(var.credentials_file)
-  project     = var.project_id
+  project     = var.project
   region      = var.region
 }
 
 # Create a VPC network
 resource "google_compute_network" "vpc_network" {
   name                  = var.network
-  auto_create_subnetworks = var.auto_create
-  routing_mode          = var.routing_mode
+  auto_create_subnetworks = false
+  routing_mode          = "REGIONAL"
 }
 
 # Create a subnet for webapp
 resource "google_compute_subnetwork" "webapp_subnet" {
   name          = var.subnet1
-  ip_cidr_range = var.ip_range1
+  ip_cidr_range = "198.162.1.0/24"
   network       = google_compute_network.vpc_network.self_link
   region        = var.region
 }
@@ -33,7 +33,7 @@ resource "google_compute_subnetwork" "webapp_subnet" {
 # Create a subnet for db
 resource "google_compute_subnetwork" "db_subnet" {
   name          = var.subnet2
-  ip_cidr_range = var.ip_range2
+  ip_cidr_range = "10.0.2.0/24"
   network       = google_compute_network.vpc_network.self_link
   region        = var.region
 }
@@ -47,61 +47,54 @@ resource "google_compute_router" "my_router" {
 # Create a route for the webapp subnet
 resource "google_compute_route" "webapp_route" {
   name              = var.route
-  dest_range        = var.source_ranges
+  dest_range        = "0.0.0.0/0"
   network           = google_compute_network.vpc_network.self_link
-  next_hop_gateway  = var.next_gateway
+  next_hop_gateway  = "default-internet-gateway"
   priority          = 1000  # Set priority higher to ensure it's preferred over default route
   depends_on        = [google_compute_subnetwork.webapp_subnet]
 }
 
 
+# Create a Compute Engine instance
+resource "google_compute_instance" "web_server" {
+  name         = "web-server"
+  machine_type = "n1-standard-2"
+  zone         = "us-central1-a"
+  tags         = ["http-server"]
+
+  boot_disk {
+    initialize_params {
+      image = "custom-image"
+      size  = "100"
+      type  = "pd-balanced"
+    }
+  }
+
+  network_interface {
+    network = google_compute_network.vpc_network.self_link
+  }
+
+  metadata_startup_script = "sudo systemctl start your-service-name"
+}
 
 # Create firewall rules
 resource "google_compute_firewall" "webapp_firewall" {
-  name    = var.firewall1
-  network = google_compute_network.vpc_network.name
+  name    = "webapp-firewall"
+  network = google_compute_network.vpc_network.self_link
   allow {
-    protocol = var.protocol
-    ports    = var.allow_port
+    protocol = "tcp"
+    ports    = ["8080"]
   }
-  source_ranges = [var.source_ranges]
+  source_ranges = ["0.0.0.0/0"]
 }
 
 resource "google_compute_firewall" "ssh_firewall" {
-  name    = var.firewall2
-  network = google_compute_network.vpc_network.name
+  name    = "ssh-firewall"
+  network = google_compute_network.vpc_network.self_link
   # Deny SSH traffic from the internet
   deny {
-    protocol = var.protocol
-    ports    = var.deny_port
-  }
-  source_ranges = [var.source_ranges]
-}
-
-# Create a Compute Engine instance
-resource "google_compute_instance" "web_server" {
-  name         = var.server_name
-  machine_type = var.machine_type
-  zone         = var.zone
-  tags         = var.server_tag
-  boot_disk {
-    initialize_params {
-      image = var.image
-      size  = var.image_size
-      type  = var.image_type
-    }
-  }
-  network_interface {
-    # network = google_compute_network.vpc_network.self_link
-    subnetwork = google_compute_subnetwork.webapp_subnet.name
-    access_config {
-      // Ephemeral public IP
-    }
-  }
-  metadata_startup_script =  var.startup_script
-
-  service_account {  
-    email  = var.service_account
-    scopes = var.service_scope
+    protocol = "tcp"
+    ports    = ["22"]
+    source_ranges = ["0.0.0.0/0"]
   }
 }
