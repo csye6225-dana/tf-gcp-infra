@@ -7,7 +7,7 @@ variable "credentials_file" {
 }
 
 variable "network"{
-    default = "vpc-network2"
+    default = "terraform-vpc"
 }
 
 variable "routing_mode"{
@@ -31,11 +31,11 @@ variable "route"{
 }
 
 variable "subnet1"{
-    default = "webapp2"
+    default = "webapp"
 }
 
 variable "subnet2"{
-    default = "db2"
+    default = "db"
 }
 
 variable "region" {
