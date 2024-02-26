@@ -82,10 +82,6 @@ variable "image_type"{
     default = "pd-balanced"
 }
 
-variable "startup_script"{
-    default = "cp -r /tmp/webapp /home/danakwoh"
-}
-
 # firewalls
 variable "firewall1"{
     default = "webapp-firewall"
@@ -104,4 +100,10 @@ variable "deny_port"{
 }
 variable "source_ranges"{
     default = "0.0.0.0/0"
+}
+variable "startup_script" {
+  default = "cd /opt/csye6225 && node app.js"
+}
+variable "service_scope" {
+  default = ["cloud-platform"]
 }
