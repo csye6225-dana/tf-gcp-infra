@@ -98,9 +98,10 @@ resource "google_compute_instance" "web_server" {
       // Ephemeral public IP
     }
   }
-  metadata_startup_script =  "cd /opt/csye6225/webapp && /usr/bin/node app.js"
+  metadata_startup_script =  var.startup_script
+
   service_account {  
     email  = var.service_account
-    scopes = ["cloud-platform"]
+    scopes = var.service_scope
   }
 }
