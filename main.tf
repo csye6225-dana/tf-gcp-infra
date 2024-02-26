@@ -92,13 +92,13 @@ resource "google_compute_instance" "web_server" {
     }
   }
   network_interface {
-    network = google_compute_network.vpc_network.self_link
-    # subnetwork = google_compute_subnetwork.webapp_subnet.name
+    # network = google_compute_network.vpc_network.self_link
+    subnetwork = google_compute_subnetwork.webapp_subnet.name
     access_config {
       // Ephemeral public IP
     }
   }
-  metadata_startup_script =  "cp -r /tmp/webapp /home/danakwoh"
+  metadata_startup_script =  "cd /opt/csye6225/webapp && /usr/bin/node app.js"
   service_account {  
     email  = var.service_account
     scopes = ["cloud-platform"]
