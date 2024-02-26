@@ -1,9 +1,13 @@
 variable "project" {
-    default = "cloudcomputing-415019"
+    default = "cyse6225-cloudcomputing-webapp"
 }
 
 variable "credentials_file" { 
     default = "credentials.json"
+}
+// compute engine instance //
+variable "service_account"{
+    default = "960667116773-compute@developer.gserviceaccount.com"
 }
 
 variable "network"{
@@ -54,10 +58,7 @@ variable "next_gateway"{
     default = "default-internet-gateway"
 }
 
-// compute engine instance //
-variable "service_account"{
-    default = "1025734219928-compute@developer.gserviceaccount.com"
-}
+
 variable "server_name"{
     default = "web-server"
 }
