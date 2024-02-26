@@ -2,7 +2,9 @@
 *.terraform
 *.tfstate
 *.terraform.lock.hcl
-*.tfstate.backup
+*.backup
+*.info
+
 
 # Ignore .class files
 *.class

@@ -1,4 +1,4 @@
-variable "project" {
+variable "project_id" {
     default = "cyse6225-cloudcomputing-webapp"
 }
 
