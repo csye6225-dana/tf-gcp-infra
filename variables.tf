@@ -22,6 +22,10 @@ variable "ip_range1"{
     default = "198.162.1.0/24"
 }
 
+variable "if_private_ip" {
+  default = true
+}
+
 variable "ip_range2"{
     default = "10.0.2.0/24"
 }
@@ -99,13 +103,13 @@ variable "firewall2"{
     default = "ssh-firewall"
 }
 variable "allow_port"{
-    default = ["8080"]
+    default = "8080"
 }
 variable "protocol"{
     default = "tcp"
 }
 variable "deny_port"{
-    default = ["22"]
+    default = "22"
 }
 variable "source_ranges"{
     default = "0.0.0.0/0"
@@ -115,4 +119,12 @@ variable "startup_script" {
 }
 variable "service_scope" {
   default = ["cloud-platform"]
+}
+
+# Mysql configuration
+variable "db_name" {
+  default = "csye6225"
+}
+variable "sql_port" {
+  default = "3306"
 }
