@@ -14,14 +14,14 @@ resource "google_project_service" "vpc_service" {
 
 
 # Configure the Google Cloud provider
-provider2 "google2" {
+provider "google2" {
   credentials = file(var.credentials_file)
   project     = var.project_id
   region      = var.region
 }
 
 # Create a VPC network
-resource2 "google_compute_network" "vpc_network" {
+resource "google_compute_network" "vpc_network" {
   name                  = var.network
   auto_create_subnetworks = var.auto_create
   routing_mode          = var.routing_mode
