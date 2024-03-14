@@ -3,18 +3,13 @@ terraform {
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = "4.51.0"
+      version = "5.20.0"
     }
   }
 }
-# Enable private services access in your VPC
-resource "google_project_service" "vpc_service" {
-  service = "servicenetworking.googleapis.com"
-}
-
 
 # Configure the Google Cloud provider
-provider "google2" {
+provider "google" {
   credentials = file(var.credentials_file)
   project     = var.project_id
   region      = var.region
@@ -34,21 +29,6 @@ resource "google_compute_subnetwork" "webapp_subnet" {
   network       = google_compute_network.vpc_network.self_link
   region        = var.region
   private_ip_google_access = var.if_private_ip
-}
-
-# Create a subnet for db
-resource "google_compute_subnetwork" "db_subnet" {
-  name          = var.subnet2
-  ip_cidr_range = var.ip_range2
-  network       = google_compute_network.vpc_network.self_link
-  region        = var.region
-  private_ip_google_access = var.if_private_ip
-}
-
-# Create a router
-resource "google_compute_router" "my_router" {
-  name    = var.router
-  network = google_compute_network.vpc_network.self_link
 }
 
 # Create a route for the webapp subnet
@@ -71,24 +51,92 @@ resource "google_compute_firewall" "webapp_firewall" {
   }
   source_ranges = [var.source_ranges]
 }
-
 resource "google_compute_firewall" "ssh_firewall" {
   name    = var.firewall2
   network = google_compute_network.vpc_network.name
-  # Deny SSH traffic from the internet
-  deny {
+  allow {
     protocol = var.protocol
-    ports    = [var.deny_port]
+    ports    = [var.ssh_port]
   }
   source_ranges = [var.source_ranges]
 }
+resource "google_compute_firewall" "sql_firewall" {
+  name    = var.firewall3
+  network = google_compute_network.vpc_network.name
+  allow {
+    protocol = var.protocol
+    ports    = [var.sql_port]
+  }
+  source_ranges = [google_compute_subnetwork.webapp_subnet.ip_cidr_range]
+  # source_ranges = [var.source_ranges]
+}
 
+
+# Private services connection
+resource "google_compute_global_address" "private_ip_block" {
+  name         = var.private_ip_name
+  purpose      = var.private_ip_purpose
+  address_type = var.private_ip_address_type
+  ip_version   = var.private_ip_version
+  prefix_length = var.private_ip_prefix_length
+  network       = google_compute_network.vpc_network.self_link
+}
+resource "google_service_networking_connection" "private_vpc_connection" {
+  network                 = google_compute_network.vpc_network.self_link
+  service                 = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.private_ip_block.name]
+  lifecycle {
+    create_before_destroy = true 
+    prevent_destroy = false
+  }
+}
+
+# CloudSQL Instance
+resource "google_sql_database_instance" "mysql" {
+  name                = var.mysql_name
+  region              = var.region
+  database_version    = var.db_version 
+  depends_on = [google_service_networking_connection.private_vpc_connection]
+
+  settings {
+    tier               = var.tier
+    disk_type          = var.disk_type
+    disk_size          = var.disk_size
+    availability_type  = var.availability_type
+    ip_configuration {
+      ipv4_enabled     = var.if_ipv4_enabled
+      private_network  = google_compute_network.vpc_network.id
+    }
+    backup_configuration {
+      binary_log_enabled = var.if_binary_log_enabled
+      enabled            = var.if_back_up
+    }
+  }
+  deletion_protection = var.if_delete
+}
+# Generate a random password for Cloud SQL user
+resource "random_password" "password" {
+  length           = 16
+  special          = true
+  override_special = "_%@"
+}
+# DB User
+resource "google_sql_user" "users" {
+  name     = var.user_name
+  instance = google_sql_database_instance.mysql.name
+  password = random_password.password.result
+}
+# Database
+resource "google_sql_database" "database" {
+  name     = var.db_name
+  instance = google_sql_database_instance.mysql.name
+}
+
+# Compute Instance (VM)
 resource "google_compute_instance" "web_server" {
   name         = var.server_name
   machine_type = var.machine_type
   zone         = var.zone
-  tags         = var.server_tag
-
   boot_disk {
     initialize_params {
       image = var.image
@@ -96,151 +144,31 @@ resource "google_compute_instance" "web_server" {
       type  = var.image_type
     }
   }
-
   network_interface {
-    network    = google_compute_network.vpc_network.self_link
+    network = google_compute_network.vpc_network.self_link
     subnetwork = google_compute_subnetwork.webapp_subnet.self_link
     access_config {}
   }
-
   metadata_startup_script = <<-SCRIPT
-    #!/bin/bash
-
-    # Set environment variables for MySQL connection
-    MYSQL_HOST="127.0.0.1"
-    DB_NAME="${google_sql_database.database.name}"
-    DB_USER="${google_sql_user.users.name}"
-    DB_PASSWORD="${google_sql_user.users.password}"
-
-    # Write environment variables to .env file
+    # Create .env file and assign configurations
     cat << EOF > /opt/csye6225/.env
-    MYSQL_HOST="$MYSQL_HOST"
-    MYSQL_PORT="${var.sql_port}"
-    PORT="${var.allow_port}"
-    DB_NAME="$DB_NAME"
-    DB_USER="$DB_USER"
-    DB_PASSWORD="$DB_PASSWORD"
+    MYSQL_HOST=127.0.0.1
+    MYSQL_PORT=${var.sql_port}
+    PORT=${var.allow_port}
+    DB_NAME=${google_sql_database.database.name}
+    DB_USER=${google_sql_user.users.name}
+    DB_PASSWORD=${google_sql_user.users.password}
     EOF
-
-    # Decode and set the service account key
-    export SERVICE_ACCOUNT_KEY="$(echo '${var.credentials_file}' | base64 -d)"
-
     # Download and make the Cloud SQL Proxy executable
-    curl -o cloud_sql_proxy https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64
-    chmod +x cloud_sql_proxy
+    curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.9.0/cloud-sql-proxy.linux.amd64
+    sleep 3
+    chmod +x cloud-sql-proxy
 
-    # Start the Cloud SQL Proxy in the background
-    ./cloud_sql_proxy -instances=cyse6225-cloudcomputing-webapp:us-central1:mysql-instance=tcp:3306 &
-
-    # Connect to MySQL and grant permissions
-    mysql -h 127.0.0.1 -u root -p"${google_sql_database_instance.mysql.root_password}" <<EOT
-    USE mysql;
-    GRANT ALL PRIVILEGES ON webapp.* TO 'webapp'@'localhost';
-    FLUSH PRIVILEGES;
-    EXIT;
-    EOT
-
-    # Wait for 5 seconds
-    sleep 5
-
-    # Write a confirmation message
-    echo 'Instance ready' > /tmp/instance_ready
-    sudo systemctl start webapp.service
+    ./cloud_sql_proxy --private-ip --credentials-file /opt/csye6225/credentials.json ${google_sql_database_instance.mysql.connection_name}
   SCRIPT
-
-
   # Service account
   service_account {
     email  = var.service_account
     scopes = var.service_scope
   }
-}
-
-
-resource "google_compute_global_address" "private_ip_block" {
-  name         = "private-ip-block"
-  purpose      = "VPC_PEERING"
-  address_type = "INTERNAL"
-  ip_version   = "IPV4"
-  prefix_length = 20
-  network       = google_compute_network.vpc_network.self_link
-}
-resource "google_service_networking_connection" "private_vpc_connection" {
-  network                 = google_compute_network.vpc_network.name
-  service                 = "servicenetworking.googleapis.com"
-  reserved_peering_ranges = [google_compute_global_address.private_ip_block.name]
-}
-
-data "google_compute_instance" "web_server" {
-  name = var.server_name
-  zone = var.zone
-}
-
-# CloudSQL Instance
-resource "google_sql_database_instance" "mysql" {
-  name                = "mysql-instance"
-  region              = var.region
-  database_version    = "MYSQL_8_0"
-  root_password       = "1234567890"
-  depends_on = [google_service_networking_connection.private_vpc_connection]
-  settings {
-    tier               = "db-f1-micro"
-    disk_type          = "PD_SSD"
-    disk_size          = 100
-    availability_type  = "REGIONAL"
-    backup_configuration {
-      binary_log_enabled = true
-      enabled            = true
-    }
-    ip_configuration {
-      authorized_networks{
-        name = "webapp-internal-ip"
-        value = google_compute_subnetwork.webapp_subnet.ip_cidr_range
-      }
-      ipv4_enabled     = false
-      private_network  = google_compute_network.vpc_network.self_link
-    }
-  }
-  deletion_protection = false
-
-}
-
-# Firewall Rule for Cloud SQL
-resource "google_compute_firewall" "sql_firewall" {
-  name    = "allow-cloudsql"
-  network = google_compute_network.vpc_network.name
-
-  allow {
-    protocol = "tcp"
-    ports    = ["3306"]
-  }
-  source_ranges = [google_compute_subnetwork.webapp_subnet.ip_cidr_range]
-}
- 
-
-# Generate a random password for Cloud SQL user
-resource "random_password" "password" {
-  length           = 16
-  special          = true
-  override_special = "!#$%&*()-_=+[]{}<>:?"
-}
-# DB User
-resource "google_sql_user" "users" {
-  name     = "webapp"
-  instance = google_sql_database_instance.mysql.name
-  password = random_password.password.result
-  host     = "localhost"
-}
-
-# Database
-resource "google_sql_database" "database" {
-  name     = "webapp"
-  instance = google_sql_database_instance.mysql.name
-}
-
-resource "google_compute_network_peering_routes_config" "peering_routes" {
-  peering              = google_service_networking_connection.private_vpc_connection.peering
-  network              = google_compute_network.vpc_network.name
-  import_custom_routes = true
-  export_custom_routes = true
 }
