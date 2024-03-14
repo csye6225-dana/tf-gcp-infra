@@ -163,8 +163,13 @@ resource "google_compute_instance" "web_server" {
     curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.9.0/cloud-sql-proxy.linux.amd64
     sleep 3
     chmod +x cloud-sql-proxy
+    ./cloud-sql-proxy --private-ip --credentials-file /opt/csye6225/credentials.json ${google_sql_database_instance.mysql.connection_name} &
+    sleep 5
 
-    ./cloud_sql_proxy --private-ip --credentials-file /opt/csye6225/credentials.json ${google_sql_database_instance.mysql.connection_name}
+    # Write a confirmation message
+    echo 'Instance ready' > /tmp/instance_ready
+    sudo systemctl stop webapp
+    sudo systemctl start webapp
   SCRIPT
   # Service account
   service_account {
