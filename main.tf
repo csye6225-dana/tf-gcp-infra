@@ -159,6 +159,7 @@ resource "google_compute_instance" "web_server" {
     DB_USER=${google_sql_user.users.name}
     DB_PASSWORD=${google_sql_user.users.password}
     EOF
+    
     # Download and make the Cloud SQL Proxy executable
     curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.9.0/cloud-sql-proxy.linux.amd64
     sleep 3
