@@ -85,13 +85,6 @@ resource "google_service_networking_connection" "private_vpc_connection" {
   network                 = google_compute_network.vpc_network.self_link
   service                 = "servicenetworking.googleapis.com"
   reserved_peering_ranges = [google_compute_global_address.private_ip_block.name]
-<<<<<<< Updated upstream
-  lifecycle {
-    create_before_destroy = true 
-    prevent_destroy = false
-  }
-=======
->>>>>>> Stashed changes
 }
 
 # CloudSQL Instance
@@ -222,15 +215,15 @@ resource "google_cloudfunctions_function" "send_verification_email" {
   source_archive_bucket = google_storage_bucket.my_bucket.name
   source_archive_object = google_storage_bucket_object.function_source.name
 
-  # trigger_http = true
+  trigger_http = true
  
   environment_variables = {
     SENDGRID_API_KEY="8J4FAE1HYFZWQHEG6MK2WSDW"
   }
-  event_trigger {
-    event_type     = "providers/cloud.pubsub/eventTypes/topic.publish"
-    resource       = google_pubsub_topic.verify_email_topic.id
-  }
+  # event_trigger {
+  #   event_type     = "providers/cloud.pubsub/eventTypes/topic.publish"
+  #   resource       = google_pubsub_topic.verify_email_topic.id
+  # }
   
 }
 
