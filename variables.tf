@@ -187,3 +187,17 @@ variable "dns_zone" {
 variable "dns_type" {
   default = "A"
 }
+
+#Load Balancer
+variable "backend_service_name" {
+  default = "baksend-webapp"
+}
+variable "target_pool_name" {
+  default = "pool-webapp"
+}
+variable "health_check_name" {
+  default = "health-check-webapp"
+}
+variable "instance_group_manager_name" {
+  default = "webapp-manager"
+}
