@@ -207,23 +207,23 @@ resource "google_storage_bucket_object" "function_source" {
   source = "/Users/Dana_G/Documents/Code/NEU/CloudComputing/serverless/email_func.zip"
 }
 
-resource "google_cloudfunctions_function" "send_verification_email" {
-  name        = "emailPubSub"
-  description = "Cloud Function for sending verification emails"
-  runtime     = "nodejs18"
+# resource "google_cloudfunctions_function" "send_verification_email" {
+#   name        = "emailPubSub"
+#   description = "Cloud Function for sending verification emails"
+#   runtime     = "nodejs18"
 
-  source_archive_bucket = google_storage_bucket.my_bucket.name
-  source_archive_object = google_storage_bucket_object.function_source.name
+#   source_archive_bucket = google_storage_bucket.my_bucket.name
+#   source_archive_object = google_storage_bucket_object.function_source.name
 
-  trigger_http = true
+#   trigger_http = true
  
-  environment_variables = {
-    SENDGRID_API_KEY="8J4FAE1HYFZWQHEG6MK2WSDW"
-  }
+#   environment_variables = {
+#     SENDGRID_API_KEY="8J4FAE1HYFZWQHEG6MK2WSDW"
+#   }
   # event_trigger {
   #   event_type     = "providers/cloud.pubsub/eventTypes/topic.publish"
   #   resource       = google_pubsub_topic.verify_email_topic.id
   # }
   
-}
+# }
 
