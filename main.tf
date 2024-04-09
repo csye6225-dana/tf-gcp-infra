@@ -7,7 +7,6 @@ terraform {
     }
   }
 }
-
 # Configure the Google Cloud provider
 provider "google" {
   credentials = file(var.credentials_file)
@@ -15,14 +14,13 @@ provider "google" {
   region      = var.region
 }
 
-# Create a VPC network
+# VPC network
 resource "google_compute_network" "vpc_network" {
   name                  = var.network
   auto_create_subnetworks = var.auto_create
   routing_mode          = var.routing_mode
 }
-
-# Create a subnet for webapp
+# Subnet for webapp
 resource "google_compute_subnetwork" "webapp_subnet" {
   name          = var.subnet1
   ip_cidr_range = var.ip_range1
@@ -30,8 +28,7 @@ resource "google_compute_subnetwork" "webapp_subnet" {
   region        = var.region
   private_ip_google_access = var.if_private_ip
 }
-
-# Create a route for the webapp subnet
+# Route for the webapp subnet
 resource "google_compute_route" "webapp_route" {
   name              = var.route
   dest_range        = var.source_ranges
@@ -40,17 +37,7 @@ resource "google_compute_route" "webapp_route" {
   priority          = 1000  # Set priority higher to ensure it's preferred over default route
   depends_on        = [google_compute_subnetwork.webapp_subnet]
 }
-
-# Create firewall rules
-resource "google_compute_firewall" "webapp_firewall" {
-  name    = var.firewall1
-  network = google_compute_network.vpc_network.name
-  allow {
-    protocol = var.protocol
-    ports    = [var.allow_port]
-  }
-  source_ranges = [var.source_ranges]
-}
+# Firewall
 resource "google_compute_firewall" "ssh_firewall" {
   name    = var.firewall2
   network = google_compute_network.vpc_network.name
@@ -68,10 +55,7 @@ resource "google_compute_firewall" "sql_firewall" {
     ports    = [var.sql_port]
   }
   source_ranges = [google_compute_subnetwork.webapp_subnet.ip_cidr_range]
-  # source_ranges = [var.source_ranges]
 }
-
-
 # Private services connection
 resource "google_compute_global_address" "private_ip_block" {
   name         = var.private_ip_name
@@ -86,7 +70,6 @@ resource "google_service_networking_connection" "private_vpc_connection" {
   service                 = "servicenetworking.googleapis.com"
   reserved_peering_ranges = [google_compute_global_address.private_ip_block.name]
 }
-
 # CloudSQL Instance
 resource "google_sql_database_instance" "mysql" {
   name                = var.mysql_name
@@ -110,7 +93,7 @@ resource "google_sql_database_instance" "mysql" {
   }
   deletion_protection = var.if_delete
 }
-# Generate a random password for Cloud SQL user
+# Random password for Cloud SQL user
 resource "random_password" "password" {
   length           = 16
   special          = true
@@ -128,6 +111,120 @@ resource "google_sql_database" "database" {
   instance = google_sql_database_instance.mysql.name
 }
 
+# Subnet for proxy
+resource "google_compute_subnetwork" "proxy_only" {
+  name          = var.subnet_proxy
+  ip_cidr_range = var.proxy_ip
+  network       = google_compute_network.vpc_network.id
+  purpose       = var.proxy_purpose
+  region        = var.region
+  role          = var.proxy_role
+}
+# Firewalls
+resource "google_compute_firewall" "allow_proxy" {
+  name = var.firewall5
+  allow {
+    ports    = [var.https_port]
+    protocol = var.protocol
+  }
+  allow {
+    ports    = [var.http_port]
+    protocol = var.protocol
+  }
+  allow {
+    ports    = [var.allow_port]
+    protocol = var.protocol
+  }
+  direction     = var.firewall_direction
+  network       = google_compute_network.vpc_network.name
+  priority      = 1000
+  source_ranges = [var.source_ranges]
+}
+resource "google_compute_firewall" "health_check" {
+  name = var.firewall6
+  allow {
+    protocol = var.protocol
+  }
+  direction     = var.firewall_direction
+  network       = google_compute_network.vpc_network.id
+  priority      = 1000
+  source_ranges = var.load_ranges
+}
+# Global Address
+resource "google_compute_global_address" "default" {
+  name          = var.global_ip_name
+  address_type  = var.global_ip_type 
+}
+# Forwarding Rule 8080
+resource "google_compute_global_forwarding_rule" "app" {
+  name       = var.fr_name
+  depends_on = [google_compute_subnetwork.proxy_only]
+  ip_protocol           = var.ip_protocol
+  load_balancing_scheme = var.global_ip_type
+  port_range            = var.allow_port
+  target                = google_compute_target_https_proxy.default.id
+  ip_address            = google_compute_global_address.default.address
+}
+# Forwarding Rule 443
+resource "google_compute_global_forwarding_rule" "https" {
+  name       = var.fr_name2
+  depends_on = [google_compute_subnetwork.proxy_only]
+  ip_protocol           = var.ip_protocol
+  load_balancing_scheme = var.global_ip_type
+  port_range            = var.https_port
+  target                = google_compute_target_https_proxy.default.id
+  ip_address            = google_compute_global_address.default.address
+}
+# SSL Certificate
+resource "google_compute_managed_ssl_certificate" "lb_default" {
+  name     = var.ssl_name
+  managed {
+    domains = [var.domain]
+  }
+}
+# HTTPS Proxy
+resource "google_compute_target_https_proxy" "default" {
+  name    = var.proxy_name
+  url_map = google_compute_url_map.default.id
+  ssl_certificates = [
+    google_compute_managed_ssl_certificate.lb_default.id
+  ]
+  depends_on = [
+    google_compute_managed_ssl_certificate.lb_default
+  ]
+}
+# URL Map
+resource "google_compute_url_map" "default" {
+  name            = var.url_name
+  default_service = google_compute_backend_service.default.id
+}
+# Health Check
+resource "google_compute_health_check" "default" {
+  name               = var.check_name
+  check_interval_sec = 5
+  healthy_threshold  = 2
+  http_health_check {
+    port               = var.app_port
+    request_path       = var.check_path
+  }
+  timeout_sec         = 5
+  unhealthy_threshold = 2
+}
+# backend service 
+resource "google_compute_backend_service" "default" {
+  name                  = var.backend_name
+  load_balancing_scheme = var.global_ip_type
+  health_checks         = [google_compute_health_check.default.id]
+  protocol              = "HTTP"
+  session_affinity      = "NONE"
+  timeout_sec           = 30
+  backend {
+    group           = google_compute_instance_group_manager.default.instance_group
+    balancing_mode  = var.balancing_mode
+    capacity_scaler = 1.0
+  }
+}
+
 # Compute Instance (VM)
 resource "google_compute_instance_template" "web_server_template" {
   name         = var.server_name
@@ -139,6 +236,11 @@ resource "google_compute_instance_template" "web_server_template" {
     source_image = var.image
     disk_size_gb  = var.image_size
     disk_type  = var.image_type
+    auto_delete  = true
+    boot         = true
+  }
+  labels = {
+    managed-by-cnrm = "true"
   }
   network_interface {
     network = google_compute_network.vpc_network.self_link
@@ -173,116 +275,44 @@ resource "google_compute_instance_template" "web_server_template" {
     email  = var.service_account
     scopes = var.service_scope
   }
+  scheduling {
+    automatic_restart   = true
+    on_host_maintenance = var.on_host_maintenance
+    provisioning_model  = var.provisioning_model
+  }
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
+# MIG
+resource "google_compute_instance_group_manager" "default" {
+  name = var.mig_name
+  zone = var.zone
+  named_port {
+    name = "http"
+    port = var.app_port
+  }
+  version {
+    instance_template = google_compute_instance_template.web_server_template.id
+    name              = var.version_name
+  }
+  base_instance_name = var.base_instance_name
+  target_size        = 2
+}
 # Autoscaling
 resource "google_compute_autoscaler" "web_autoscaler" {
-  name        = "web-autoscaler"
-  project     = var.project_id
+  name        = var.scaler_name
   zone        = var.zone
-  target      = google_compute_instance_template.web_server_template.self_link
-  
+  target      = google_compute_instance_group_manager.default.id
   autoscaling_policy {
-    max_replicas      = 10
-    min_replicas      = 1
+    max_replicas      = 6
+    min_replicas      = 3
     cooldown_period   = 60
     cpu_utilization {
       target = 0.05
     }
   }
-}
-
-# resource "google_compute_target_pool" "web_target_pool" {
-#   name             = var.target_pool_name
-#   region           = var.region
-#   health_checks    = [google_compute_http_health_check.default.self_link]
-# }
-
-resource "google_compute_http_health_check" "default" {
-  name               = var.health_check_name
-  request_path       = "/healthz"
-  # port               = "8080"
-  check_interval_sec = 10
-  timeout_sec        = 5
-}
-# Group Manager
-resource "google_compute_instance_group_manager" "default" {
-  name        = var.instance_group_manager_name
-  base_instance_name = "webapp-instance"
-  project     = var.project_id
-  zone        = var.zone
-  target_size = 1
-  version {
-    instance_template = google_compute_instance_template.web_server_template.self_link
-  }
-  named_port {
-    name = "http"
-    port = 8080
-  }
-  # target_pools = [google_compute_target_pool.web_target_pool.self_link]
-  auto_healing_policies {
-    health_check = google_compute_http_health_check.default.id
-    initial_delay_sec = 300
-  }
-
-  # update_policy {
-  #   type = "PROACTIVE"
-  #   minimal_action = "RESTART"
-  #   max_surge = 1
-  #   max_unavailable = 1
-  # }
-
-  depends_on = [google_compute_http_health_check.default]
-}
-
-# Update firewall ingress rules to allow only load balancer access
-resource "google_compute_firewall" "firewall" {
-  name    = "allow-lb"
-  network = "default"  # Update this if using a custom network
-
-  allow {
-    protocol = "tcp"
-    ports    = ["80", "443"]
-  }
-
-  source_ranges = ["130.211.0.0/22", "35.191.0.0/16"]  # Google's load balancer IP ranges
-}
-# Create a external Application Load Balancer
-resource "google_compute_global_forwarding_rule" "forwarding_rule" {
-  name       = "https-forwarding-rule"
-  target     = google_compute_target_https_proxy.https_proxy.self_link
-  port_range = "443"
-}
-
-# Create a target HTTPS proxy
-resource "google_compute_target_https_proxy" "https_proxy" {
-  name             = "https-proxy"
-  description      = "HTTPS proxy for load balancer"
-  url_map          = google_compute_url_map.url_map.self_link
-  ssl_certificates = [google_compute_managed_ssl_certificate.ssl_certificate.id]
-}
-
-# Create a URL map for the load balancer
-resource "google_compute_url_map" "url_map" {
-  name            = "url-map"
-  default_service = google_compute_backend_service.web_backend_service.self_link
-}
-
-# Create a backend service for the load balancer
-resource "google_compute_backend_service" "web_backend_service" {
-  name           = "backend-service"
-  health_checks  = [google_compute_http_health_check.default.self_link]
-  port_name      = "http"
-  protocol       = "HTTP"
-  backend {
-    group = google_compute_instance_group_manager.default.self_link
-  }
-}
-
-# Create a Google-managed SSL certificate
-resource "google_compute_managed_ssl_certificate" "ssl_certificate" {
-  name = "ssl-certificate"
-  
 }
 
 # DNS
@@ -291,7 +321,7 @@ resource "google_dns_record_set" "DNS" {
   type         = var.dns_type
   ttl          = 300
   managed_zone = var.dns_zone
-  rrdatas = [google_compute_global_forwarding_rule.forwarding_rule.ip_address]
+  rrdatas = [google_compute_global_address.default.address]
 }
 
 

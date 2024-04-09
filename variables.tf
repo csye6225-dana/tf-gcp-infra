@@ -39,6 +39,18 @@ variable "ip_range2"{
 variable "region" {
   default = "us-central1"
 }
+variable "subnet_proxy" {
+  default = "proxy-only-subnet"
+}
+variable "proxy_ip" {
+  default = "10.129.0.0/23"
+}
+variable "proxy_purpose" {
+  default = "REGIONAL_MANAGED_PROXY"
+}
+variable "proxy_role" {
+  default = "ACTIVE"
+}
 
 # Route
 variable "route"{
@@ -61,6 +73,12 @@ variable "firewall3"{
 variable "firewall4"{
     default = "http-firewall"
 }
+variable "firewall5"{
+    default = "proxy-firewall"
+}
+variable "firewall6"{
+    default = "healthcheck-firewall"
+}
 variable "allow_port"{
     default = "8080"
 }
@@ -73,68 +91,20 @@ variable "ssh_port"{
 variable "http_port"{
     default = "80"
 }
+variable "https_port"{
+    default = "443"
+}
 variable "source_ranges"{
     default = "0.0.0.0/0"
 }
 variable "sql_port" {
   default = "3306"
 }
-
-# Resreved Private ip
-variable "private_ip_name" {
-  default = "private-service-ip"
+variable "load_ranges" {
+  default = ["130.211.0.0/22", "35.191.0.0/16"]
 }
-variable "private_ip_purpose" {
-  default = "VPC_PEERING"
-}
-variable "private_ip_address_type" {
-  default = "INTERNAL"
-}
-variable "private_ip_version" {
-  default = "IPV4"
-}
-variable "private_ip_prefix_length" {
-  default = 16
-}
-variable "static_ip_name" {
-  default = "static-ip"
-}
-
-# Service Account
-variable "ser_acc_id" {
-  default =  "vm-logging"
-}
-variable "ser_acc_dis" {
-  default = "VM Logging"
-}
-variable "service_scope" {
-  default = ["https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/monitoring.write"]
-}
-
-# Compute Instance (VM)
-variable "zone" {
-  default = "us-central1-c"
-}
-variable "server_name"{
-    default = "web-server"
-}
-variable "machine_type"{
-    default = "n1-standard-2"
-}
-variable "server_tag"{
-    default = ["http-server"]
-}
-variable "image"{
-    default = "custom-image"
-}
-variable "image_size"{
-    default = 100
-}
-variable "image_type"{
-    default = "pd-balanced"
-}
-variable "sql_connection_name" {
-  default = "cyse6225-cloudcomputing-webapp:us-central1:mysql-instance"
+variable "firewall_direction" {
+  default = "INGRESS"
 }
 
 # Cloud SQL instance
@@ -177,6 +147,136 @@ variable "db_name"{
     default = "webapp"
 }
 
+# Resreved Private ip
+variable "private_ip_name" {
+  default = "private-service-ip"
+}
+variable "private_ip_purpose" {
+  default = "VPC_PEERING"
+}
+variable "private_ip_address_type" {
+  default = "INTERNAL"
+}
+variable "private_ip_version" {
+  default = "IPV4"
+}
+variable "private_ip_prefix_length" {
+  default = 16
+}
+variable "static_ip_name" {
+  default = "static-ip"
+}
+
+# Global Address ip
+variable "global_ip_name" {
+  default = "load-balancer"
+}
+variable "global_ip_type" {
+  default = "EXTERNAL"
+}
+
+# Forwarding Rule
+variable "fr_name" {
+  default = "webapp-forwarding-rule"
+}
+variable "ip_protocol" {
+  default = "TCP"
+}
+variable "fr_name2" {
+  default = "https-forwarding-rule"
+}
+
+# SSL Certificate
+variable "ssl_name" {
+  default = "ssl-webapp"
+}
+variable "domain" {
+  default = "csye6225webapp.online"
+}
+# HTTPS Proxy
+variable "proxy_name" {
+  default = "webapp-proxy"
+}
+# URL Map
+variable "url_name" {
+  default = "webapp-url-map"
+}
+# Health Check
+variable "check_name" {
+  default = "webapp-healthcheck"
+}
+variable "check_path" {
+  default = "/healthz"
+}
+# Backend
+variable "backend_name" {
+  default = "webapp-backend-service"
+}
+variable "app_port" {
+  default = 8080
+}
+variable "balancing_mode" {
+  default = "UTILIZATION"
+}
+# Service Account
+variable "ser_acc_id" {
+  default =  "vm-logging"
+}
+variable "ser_acc_dis" {
+  default = "VM Logging"
+}
+variable "service_scope" {
+  default = ["https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/monitoring.write"]
+}
+
+# Compute Instance (VM)
+variable "zone" {
+  default = "us-central1-c"
+}
+variable "server_name"{
+    default = "web-server"
+}
+variable "machine_type"{
+    default = "n1-standard-2"
+}
+variable "server_tag"{
+    default = ["http-server"]
+}
+variable "image"{
+    default = "custom-image"
+}
+variable "image_size"{
+    default = 100
+}
+variable "image_type"{
+    default = "pd-balanced"
+}
+variable "sql_connection_name" {
+  default = "cyse6225-cloudcomputing-webapp:us-central1:mysql-instance"
+}
+variable "on_host_maintenance" {
+  default = "MIGRATE"
+}
+variable "provisioning_model" {
+  default = "STANDARD"
+}
+
+# MIG
+variable "mig_name" {
+  default = "webapp-manager"
+}
+variable "version_name" {
+  default = "primary"
+}
+variable "base_instance_name" {
+  default = "vm"
+}
+
+# Autoscaling
+variable "scaler_name" {
+  default = "webapp-autoscaler"
+}
+
 # DNS
 variable "dns_name" {
   default = "csye6225webapp.online."
@@ -188,16 +288,3 @@ variable "dns_type" {
   default = "A"
 }
 
-#Load Balancer
-variable "backend_service_name" {
-  default = "baksend-webapp"
-}
-variable "target_pool_name" {
-  default = "pool-webapp"
-}
-variable "health_check_name" {
-  default = "health-check-webapp"
-}
-variable "instance_group_manager_name" {
-  default = "webapp-manager"
-}
